@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Next.js Build output
+.next/
+out/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Uploads / Temp storage
+uploads/
+scratch/
+
+# Operating System files
+.DS_Store
+*.pem
+Thumbs.db
