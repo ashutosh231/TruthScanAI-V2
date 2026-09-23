@@ -18,12 +18,17 @@ const allowedOrigins = clientUrl.split(",").map((url) => url.trim());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server) or matching configured clientUrl
-      if (
-        !origin ||
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Check configured origins, any vercel.app deployment, or local dev
+      const isAllowed =
         allowedOrigins.includes(origin) ||
-        (process.env.NODE_ENV !== "production" && origin.startsWith("http://localhost"))
-      ) {
+        origin.endsWith(".vercel.app") ||
+        origin.includes("vercel.app") ||
+        (process.env.NODE_ENV !== "production" && origin.startsWith("http://localhost"));
+
+      if (isAllowed) {
         callback(null, true);
       } else {
         callback(new Error(`Origin '${origin}' not allowed by CORS.`));
@@ -63,13 +68,21 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// API Routes
+// Primary API Routes (standard /api prefix)
 app.use("/api/auth", authRoutes);
 app.use("/api/fact-check", factCheckRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/scan", scanRoutes);
+
+// Fallback Route Mounts (if NEXT_PUBLIC_API_URL was configured without /api)
+app.use("/auth", authRoutes);
+app.use("/fact-check", factCheckRoutes);
+app.use("/news", newsRoutes);
+app.use("/payments", paymentRoutes);
+app.use("/users", userRoutes);
+app.use("/scan", scanRoutes);
 
 // 404 Route Handler
 app.use((req, res, next) => {
