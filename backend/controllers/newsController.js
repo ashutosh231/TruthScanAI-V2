@@ -43,6 +43,8 @@ export const refreshNews = async (req, res, next) => {
   }
 };
 
+import { sanitizePublicReport } from "../utils/responseSanitizer.js";
+
 /**
  * Fact-check a news wire article
  * POST /api/news/fact-check
@@ -63,29 +65,57 @@ export const factCheckNewsArticle = async (req, res, next) => {
 
     // If user is authenticated, associate with user history
     let savedRecord = null;
-    if (req.user?._id) {
-      savedRecord = await FactCheck.create({
-        user: req.user._id,
-        input: claimText,
-        type: "news",
-        verdict: aiResult.verdict,
-        confidence: aiResult.confidence,
-        explanation: aiResult.explanation,
-        metadata: {
-          articleId,
-          title,
-          url,
-        },
-      });
+    const userId = req.user?._id || req.user?.userId;
+    if (userId) {
+      try {
+        savedRecord = await FactCheck.create({
+          user: userId,
+          input: claimText,
+          type: "news",
+          verdict: aiResult.verdict,
+          confidence: Math.round(aiResult.confidence),
+          explanation: aiResult.explanation,
+          sources: aiResult.sources || [],
+          researchMetadata: aiResult.researchMetadata || {},
+          metadata: {
+            articleId,
+            title,
+            url,
+            timelineAndContext: aiResult.timelineAndContext || "",
+            debunkingEvidence: aiResult.debunkingEvidence || [],
+            keySignals: aiResult.keySignals || [],
+            tactics: aiResult.tactics || [],
+            sourcesChecked: aiResult.sourcesChecked || [],
+            advisory: aiResult.advisory || "",
+            sources: aiResult.sources || [],
+            researchMetadata: aiResult.researchMetadata || {},
+          },
+        });
+      } catch (dbErr) {
+        console.warn("[NewsController DB Save Notice]:", dbErr.message);
+      }
     }
+
+    const publicData = sanitizePublicReport({
+      verdict: aiResult.verdict,
+      confidence: Math.round(aiResult.confidence),
+      explanation: aiResult.explanation.trim(),
+      timelineAndContext: aiResult.timelineAndContext,
+      debunkingEvidence: aiResult.debunkingEvidence,
+      keySignals: aiResult.keySignals,
+      tactics: aiResult.tactics,
+      sourcesChecked: aiResult.sourcesChecked,
+      advisory: aiResult.advisory,
+      claimAnalyzed: claimText,
+      sources: aiResult.sources || [],
+      researchMetadata: aiResult.researchMetadata || {},
+      recordId: savedRecord?._id || null,
+    });
 
     res.status(200).json({
       success: true,
-      id: savedRecord?._id || null,
-      verdict: aiResult.verdict,
-      confidence: aiResult.confidence,
-      explanation: aiResult.explanation,
-      claimAnalyzed: claimText,
+      ...publicData,
+      data: publicData,
     });
   } catch (error) {
     next(error);
