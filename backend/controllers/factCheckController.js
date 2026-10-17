@@ -1,5 +1,8 @@
 import FactCheck from "../models/FactCheck.js";
 import { factCheckWithAI } from "../services/bedrockService.js";
+import { extractFileContent } from "../utils/fileExtractor.js";
+import { validateSafeUrl } from "../utils/urlSecurity.js";
+import { sanitizePublicReport } from "../utils/responseSanitizer.js";
 
 const VALID_INPUT_TYPES = ["text", "url", "file", "news", "scan"];
 
@@ -24,6 +27,15 @@ export const createFactCheck = async (req, res, next) => {
       );
     }
 
+    // SSRF validation for URL type
+    if (normalizedType === "url") {
+      const urlCheck = validateSafeUrl(text.trim());
+      if (!urlCheck.valid) {
+        res.status(400);
+        throw new Error(`Invalid or prohibited URL: ${urlCheck.error}`);
+      }
+    }
+
     // Strict 2 Free Trials Check for Non-Premium Users
     if (!req.user.isPremium) {
       const priorChecksCount = await FactCheck.countDocuments({ user: req.user._id });
@@ -39,7 +51,7 @@ export const createFactCheck = async (req, res, next) => {
       }
     }
 
-    // Call unified AI fact-checking service
+    // Call LangChain research-assisted AI fact-checking pipeline
     const aiResult = await factCheckWithAI(text.trim());
 
     const detailedMetadata = {
@@ -50,6 +62,8 @@ export const createFactCheck = async (req, res, next) => {
       tactics: aiResult.tactics,
       sourcesChecked: aiResult.sourcesChecked,
       advisory: aiResult.advisory,
+      sources: aiResult.sources,
+      researchMetadata: aiResult.researchMetadata,
     };
 
     // Save record to MongoDB
@@ -60,31 +74,37 @@ export const createFactCheck = async (req, res, next) => {
       verdict: aiResult.verdict,
       confidence: aiResult.confidence,
       explanation: aiResult.explanation,
+      sources: aiResult.sources,
+      researchMetadata: aiResult.researchMetadata,
       metadata: detailedMetadata,
     });
 
     const totalUsage = await FactCheck.countDocuments({ user: req.user._id });
 
+    const publicResult = sanitizePublicReport({
+      id: factCheck._id,
+      input: factCheck.input,
+      type: factCheck.type,
+      verdict: factCheck.verdict,
+      confidence: factCheck.confidence,
+      explanation: factCheck.explanation,
+      timelineAndContext: aiResult.timelineAndContext,
+      debunkingEvidence: aiResult.debunkingEvidence,
+      keySignals: aiResult.keySignals,
+      tactics: aiResult.tactics,
+      sourcesChecked: aiResult.sourcesChecked,
+      advisory: aiResult.advisory,
+      sources: aiResult.sources,
+      researchMetadata: aiResult.researchMetadata,
+      trialsUsed: totalUsage,
+      trialsRemaining: req.user.isPremium ? null : Math.max(0, 2 - totalUsage),
+      isPremium: req.user.isPremium,
+      createdAt: factCheck.createdAt,
+    });
+
     res.status(201).json({
       success: true,
-      result: {
-        id: factCheck._id,
-        input: factCheck.input,
-        type: factCheck.type,
-        verdict: factCheck.verdict,
-        confidence: factCheck.confidence,
-        explanation: factCheck.explanation,
-        timelineAndContext: aiResult.timelineAndContext,
-        debunkingEvidence: aiResult.debunkingEvidence,
-        keySignals: aiResult.keySignals,
-        tactics: aiResult.tactics,
-        sourcesChecked: aiResult.sourcesChecked,
-        advisory: aiResult.advisory,
-        trialsUsed: totalUsage,
-        trialsRemaining: req.user.isPremium ? null : Math.max(0, 2 - totalUsage),
-        isPremium: req.user.isPremium,
-        createdAt: factCheck.createdAt,
-      },
+      result: publicResult,
     });
   } catch (error) {
     next(error);
@@ -117,28 +137,34 @@ export const checkFile = async (req, res, next) => {
       }
     }
 
-    let extractedText = "";
-
-    // If text file, read buffer directly
-    if (req.file.mimetype === "text/plain") {
-      extractedText = req.file.buffer.toString("utf-8");
-    } else {
-      // For images and PDFs in this initial backend, extract filename and descriptive context
-      extractedText = `Document Evidence File: ${req.file.originalname} (Size: ${(req.file.size / 1024).toFixed(1)} KB, Type: ${req.file.mimetype})`;
+    // Extract real document contents using fileExtractor
+    let extracted;
+    try {
+      extracted = await extractFileContent(req.file);
+    } catch (extractErr) {
+      res.status(400);
+      throw new Error(`File content extraction failed: ${extractErr.message}`);
     }
 
+    const { text: extractedText, engine, confidence: extractionConfidence } = extracted;
+
+    // Call LangChain research-assisted AI fact-checking pipeline with extracted text
     const aiResult = await factCheckWithAI(extractedText);
 
     const detailedMetadata = {
       originalName: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
+      extractionEngine: engine,
+      extractionConfidence,
       timelineAndContext: aiResult.timelineAndContext,
       debunkingEvidence: aiResult.debunkingEvidence,
       keySignals: aiResult.keySignals,
       tactics: aiResult.tactics,
       sourcesChecked: aiResult.sourcesChecked,
       advisory: aiResult.advisory,
+      sources: aiResult.sources,
+      researchMetadata: aiResult.researchMetadata,
     };
 
     const factCheck = await FactCheck.create({
@@ -148,31 +174,37 @@ export const checkFile = async (req, res, next) => {
       verdict: aiResult.verdict,
       confidence: aiResult.confidence,
       explanation: aiResult.explanation,
+      sources: aiResult.sources,
+      researchMetadata: aiResult.researchMetadata,
       metadata: detailedMetadata,
     });
 
     const totalUsage = await FactCheck.countDocuments({ user: req.user._id });
 
+    const publicResult = sanitizePublicReport({
+      id: factCheck._id,
+      input: factCheck.input,
+      type: factCheck.type,
+      verdict: factCheck.verdict,
+      confidence: factCheck.confidence,
+      explanation: factCheck.explanation,
+      timelineAndContext: aiResult.timelineAndContext,
+      debunkingEvidence: aiResult.debunkingEvidence,
+      keySignals: aiResult.keySignals,
+      tactics: aiResult.tactics,
+      sourcesChecked: aiResult.sourcesChecked,
+      advisory: aiResult.advisory,
+      sources: aiResult.sources,
+      researchMetadata: aiResult.researchMetadata,
+      trialsUsed: totalUsage,
+      trialsRemaining: req.user.isPremium ? null : Math.max(0, 2 - totalUsage),
+      isPremium: req.user.isPremium,
+      createdAt: factCheck.createdAt,
+    });
+
     res.status(201).json({
       success: true,
-      result: {
-        id: factCheck._id,
-        input: factCheck.input,
-        type: factCheck.type,
-        verdict: factCheck.verdict,
-        confidence: factCheck.confidence,
-        explanation: factCheck.explanation,
-        timelineAndContext: aiResult.timelineAndContext,
-        debunkingEvidence: aiResult.debunkingEvidence,
-        keySignals: aiResult.keySignals,
-        tactics: aiResult.tactics,
-        sourcesChecked: aiResult.sourcesChecked,
-        advisory: aiResult.advisory,
-        trialsUsed: totalUsage,
-        trialsRemaining: req.user.isPremium ? null : Math.max(0, 2 - totalUsage),
-        isPremium: req.user.isPremium,
-        createdAt: factCheck.createdAt,
-      },
+      result: publicResult,
     });
   } catch (error) {
     next(error);
@@ -196,13 +228,15 @@ export const getFactCheckHistory = async (req, res, next) => {
       FactCheck.countDocuments(query),
     ]);
 
+    const sanitizedItems = items.map((doc) => sanitizePublicReport(doc));
+
     res.status(200).json({
       success: true,
-      count: items.length,
+      count: sanitizedItems.length,
       total,
       page,
       totalPages: Math.ceil(total / limit) || 1,
-      data: items,
+      data: sanitizedItems,
     });
   } catch (error) {
     next(error);
@@ -223,11 +257,22 @@ export const getFactCheckById = async (req, res, next) => {
       throw new Error("Fact check record not found.");
     }
 
+    const publicDoc = sanitizePublicReport(
+      factCheck.toObject ? factCheck.toObject() : factCheck
+    );
+
     res.status(200).json({
       success: true,
-      data: factCheck,
+      data: publicDoc,
     });
   } catch (error) {
     next(error);
   }
+};
+
+export default {
+  createFactCheck,
+  checkFile,
+  getFactCheckHistory,
+  getFactCheckById,
 };

@@ -1,3 +1,5 @@
+import { sanitizeText } from "../utils/responseSanitizer.js";
+
 /**
  * Global centralized error handling middleware.
  * Ensures all API errors return a standard JSON structure:
@@ -50,10 +52,21 @@ export const errorHandler = (err, req, res, next) => {
     message = "Only JPG and PNG images are supported.";
   }
 
+  // Prevent internal provider leakage in error responses
+  if (/bedrock|deepseek|tavily|langchain|newsapi|textract/i.test(message)) {
+    if (/tavily|search/i.test(message)) {
+      message = "Research Service Temporarily Unavailable";
+    } else if (/bedrock|deepseek|model/i.test(message)) {
+      message = "TruthScan AI Analysis is temporarily unavailable. Please try again shortly.";
+    } else {
+      message = sanitizeText(message);
+    }
+  }
+
   res.status(statusCode).json({
     success: false,
-    message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    message: sanitizeText(message),
+    ...(process.env.NODE_ENV === "development" && { stack: sanitizeText(err.stack || "") }),
   });
 };
 

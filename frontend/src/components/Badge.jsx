@@ -21,8 +21,11 @@ export default function Badge({
     } else if (v === "FALSE") {
       computedVariant = "false";
       IconComponent = XCircle;
-    } else if (v === "MISLEADING") {
+    } else if (v === "MIXED" || v === "MISLEADING") {
       computedVariant = "misleading";
+      IconComponent = AlertTriangle;
+    } else if (v === "VERIFICATION_UNAVAILABLE") {
+      computedVariant = "unavailable";
       IconComponent = AlertTriangle;
     } else {
       computedVariant = "uncertain";
@@ -35,6 +38,7 @@ export default function Badge({
     false: "bg-[#FF4D4D] text-[#111111] border-2 border-[#111111] shadow-hard-xs",
     misleading: "bg-[#FFC857] text-[#111111] border-2 border-[#111111] shadow-hard-xs",
     uncertain: "bg-[#E8E2D5] text-[#111111] border-2 border-[#111111] shadow-hard-xs",
+    unavailable: "bg-[#FF4D4D]/25 text-[#111111] border-2 border-[#FF4D4D] shadow-hard-xs",
     lime: "bg-[#B7FF3C] text-[#111111] border-2 border-[#111111] shadow-hard-xs",
     dark: "bg-[#111111] text-[#F5F1E8] border-2 border-[#111111]",
     outline: "bg-transparent text-[#111111] border-2 border-[#111111]",
