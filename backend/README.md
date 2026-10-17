@@ -133,7 +133,7 @@ Create `.env` using `.env.example`:
 | `AWS_ACCESS_KEY_ID` | AWS IAM access key |
 | `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
 | `BEDROCK_MODEL_ID` | Model identifier (`deepseek.v3.2`) |
-| `NEWSAPI_AI_KEY` | NewsAPI.ai / Event Registry API key |
+| `TAVILY_API_KEY` | Tavily Search API key for live web fact-checking |
 | `RAZORPAY_KEY_ID` | Razorpay Key ID |
 | `RAZORPAY_KEY_SECRET` | Razorpay Key Secret |
 | `RAZORPAY_WEBHOOK_SECRET` | Razorpay webhook secret |

@@ -19,7 +19,15 @@ const factCheckSchema = new mongoose.Schema(
     },
     verdict: {
       type: String,
-      enum: ["TRUE", "FALSE", "MISLEADING", "UNCERTAIN"],
+      enum: [
+        "TRUE",
+        "FALSE",
+        "MISLEADING",
+        "UNCERTAIN",
+        "MIXED",
+        "UNVERIFIED",
+        "VERIFICATION_UNAVAILABLE",
+      ],
       required: [true, "Verdict is required"],
     },
     confidence: {
@@ -31,6 +39,29 @@ const factCheckSchema = new mongoose.Schema(
     explanation: {
       type: String,
       required: [true, "Explanation is required"],
+    },
+    sources: [
+      {
+        title: { type: String },
+        url: { type: String },
+        publisher: { type: String },
+        publishedAt: { type: String, default: null },
+        retrievedAt: { type: String },
+        sourceType: { type: String, default: "web" },
+        snippet: { type: String },
+        relevance: { type: String },
+      },
+    ],
+    researchMetadata: {
+      searchSucceeded: { type: Boolean, default: false },
+      resultsCount: { type: Number, default: 0 },
+      searchProvider: { type: String, default: "Tavily" },
+      searchQuery: { type: String, default: "" },
+      searchError: { type: String, default: null },
+      webSearchSucceeded: { type: Boolean, default: false },
+      newsSearchSucceeded: { type: Boolean, default: false },
+      webResultsCount: { type: Number, default: 0 },
+      newsResultsCount: { type: Number, default: 0 },
     },
     metadata: {
       type: mongoose.Schema.Types.Mixed,

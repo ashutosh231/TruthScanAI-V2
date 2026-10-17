@@ -273,7 +273,7 @@ AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX
 AWS_SECRET_ACCESS_KEY=your_secret_access_key_here
 BEDROCK_MODEL_ID=deepseek.v3.2
 
-NEWSAPI_AI_KEY=your_newsapi_org_key
+TAVILY_API_KEY=tvly-your_tavily_api_key_here
 RAZORPAY_KEY_ID=rzp_test_XXXXXXXXXXXXXX
 RAZORPAY_KEY_SECRET=your_razorpay_secret_key
 RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_key
