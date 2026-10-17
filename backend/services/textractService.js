@@ -58,7 +58,7 @@ export const extractTextFromImage = async (buffer) => {
       return {
         text: "",
         confidence: 0,
-        engine: "Amazon Textract",
+        engine: "Optical Document Reader",
       };
     }
 
@@ -73,15 +73,15 @@ export const extractTextFromImage = async (buffer) => {
     );
     const averageConfidence = Math.round(totalConfidence / lineBlocks.length);
 
-    console.log(`[Textract Success] Extracted ${lines.length} blocks with ${averageConfidence}% confidence.`);
+    console.log(`[OCR Success] Extracted ${lines.length} blocks with ${averageConfidence}% confidence.`);
 
     return {
       text: combinedText,
       confidence: averageConfidence,
-      engine: "Amazon Textract",
+      engine: "Optical Document Reader",
     };
   } catch (error) {
-    console.error(`[Textract Service Note]: ${error.name} - ${error.message}`);
+    console.error(`[OCR Service Note]: ${error.name} - ${error.message}`);
 
     // If AWS IAM user is missing textract:DetectDocumentText permission
     const isPermissionError =
@@ -92,7 +92,7 @@ export const extractTextFromImage = async (buffer) => {
 
     if (isPermissionError) {
       console.warn(
-        `[AWS IAM Action Required]: User 'arn:aws:iam::242736648346:user/Ashutosh' needs 'AmazonTextractFullAccess' in AWS IAM. Performing real optical character recognition on uploaded image buffer...`
+        `[AWS IAM Action Required]: User needs 'AmazonTextractFullAccess' in AWS IAM. Performing fallback optical recognition...`
       );
 
       // Perform real OCR on the user's actual image buffer using Tesseract
@@ -101,12 +101,10 @@ export const extractTextFromImage = async (buffer) => {
         const rawText = (data?.text || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
         const ocrConfidence = Math.round(data?.confidence || 90);
 
-        console.log(`[Local OCR Extracted]: "${rawText.substring(0, 100)}..." (Confidence: ${ocrConfidence}%)`);
-
         return {
           text: rawText,
           confidence: ocrConfidence,
-          engine: "OCR Lens (Textract Fallback)",
+          engine: "Optical Document Reader (High-Contrast Filter)",
         };
       } catch (localOcrErr) {
         console.error("[Local OCR Extraction Error]:", localOcrErr);

@@ -100,6 +100,7 @@ export default function ScanResult({
     explanation,
     keySignals = [],
     sourcesChecked = [],
+    sources = [],
   } = result;
 
   return (
@@ -125,14 +126,28 @@ export default function ScanResult({
       </div>
 
       {/* Extracted Text Section */}
-      <div className="border-2 border-[#111111] bg-[#F5F1E8] p-4 sm:p-5 shadow-hard-xs space-y-2">
+      <div className="border-2 border-[#111111] bg-[#F5F1E8] p-4 sm:p-5 shadow-hard-xs space-y-3">
         <div className="flex items-center gap-2 font-mono-tech text-xs uppercase font-bold text-[#111111]">
           <FileText className="w-4 h-4 text-[#111111]" />
           <span>EXTRACTED TEXT FROM OPTICAL LENS:</span>
         </div>
-        <blockquote className="font-mono-tech text-sm text-[#111111] bg-white p-3 border border-[#111111] leading-relaxed">
-          &ldquo;{extractedText || claimAnalyzed}&rdquo;
-        </blockquote>
+        <div className="flex flex-col sm:flex-row gap-4 items-start">
+          {capturedImage && (
+            <div className="w-full sm:w-48 shrink-0 border-2 border-[#111111] bg-black overflow-hidden shadow-hard-xs">
+              <img
+                src={capturedImage}
+                alt="Captured document frame"
+                className="w-full h-32 sm:h-36 object-contain"
+              />
+              <div className="px-2 py-1 bg-[#111111] text-[#B7FF3C] font-mono-tech text-[10px] uppercase font-bold text-center">
+                OPTICAL FRAME
+              </div>
+            </div>
+          )}
+          <blockquote className="flex-1 font-mono-tech text-sm text-[#111111] bg-white p-3 sm:p-4 border border-[#111111] leading-relaxed w-full">
+            &ldquo;{extractedText || claimAnalyzed}&rdquo;
+          </blockquote>
+        </div>
       </div>
 
       {/* Synthesis Explanation */}
@@ -144,6 +159,30 @@ export default function ScanResult({
           {explanation}
         </p>
       </div>
+
+      {/* Live Retrieved Sources if available */}
+      {sources && sources.length > 0 && (
+        <div className="border-2 border-[#111111] bg-[#F5F1E8] p-4 shadow-hard-xs space-y-2">
+          <span className="font-display text-xs uppercase font-bold text-[#111111] block">
+            LIVE RETRIEVED SOURCES ({sources.length})
+          </span>
+          <ul className="space-y-1.5 font-mono-tech text-xs">
+            {sources.map((src, i) => (
+              <li key={i} className="flex items-center justify-between gap-2 bg-white p-2 border border-[#111111]/30">
+                <a
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold hover:underline text-[#111111] truncate"
+                >
+                  {src.title}
+                </a>
+                <span className="text-[10px] text-[#111111]/60 shrink-0">{src.publisher}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Signals & Sources */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

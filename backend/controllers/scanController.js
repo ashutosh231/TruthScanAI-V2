@@ -1,8 +1,17 @@
 import { extractTextFromImage } from "../services/textractService.js";
 import { factCheckWithAI } from "../services/bedrockService.js";
 import { FactCheck } from "../models/FactCheck.js";
+import { sanitizePublicReport } from "../utils/responseSanitizer.js";
 
-const VALID_VERDICTS = ["TRUE", "FALSE", "MISLEADING", "UNCERTAIN"];
+const VALID_VERDICTS = [
+  "TRUE",
+  "FALSE",
+  "MISLEADING",
+  "UNCERTAIN",
+  "MIXED",
+  "UNVERIFIED",
+  "VERIFICATION_UNAVAILABLE",
+];
 
 /**
  * Scan image via Amazon Textract OCR and evaluate with AWS Bedrock DeepSeek V3.2
@@ -104,42 +113,59 @@ export const scanNews = async (req, res, next) => {
     }
 
     // 9. Persist FactCheck Record to MongoDB
-    const factCheckRecord = await FactCheck.create({
-      user: userId,
-      input: extractedText.trim(),
-      type: "scan",
-      verdict: aiResult.verdict,
-      confidence: Math.round(aiResult.confidence),
-      explanation: aiResult.explanation.trim(),
-      metadata: {
-        ocrConfidence: ocrConfidence || 95,
-        timelineAndContext: aiResult.timelineAndContext || "",
-        debunkingEvidence: aiResult.debunkingEvidence || [],
-        keySignals: aiResult.keySignals || [],
-        tactics: aiResult.tactics || [],
-        sourcesChecked: aiResult.sourcesChecked || [],
-        advisory: aiResult.advisory || "",
-        source: "Camera Optical Scan (Amazon Textract)",
-      },
-    });
-
-    // 10. Return Structured Response
-    return res.status(200).json({
-      success: true,
-      data: {
-        extractedText: extractedText.trim(),
-        ocrConfidence: ocrConfidence || 95,
+    let factCheckRecord = null;
+    try {
+      factCheckRecord = await FactCheck.create({
+        user: userId,
+        input: extractedText.trim(),
+        type: "scan",
         verdict: aiResult.verdict,
         confidence: Math.round(aiResult.confidence),
         explanation: aiResult.explanation.trim(),
-        timelineAndContext: aiResult.timelineAndContext,
-        debunkingEvidence: aiResult.debunkingEvidence,
-        keySignals: aiResult.keySignals,
-        tactics: aiResult.tactics,
-        sourcesChecked: aiResult.sourcesChecked,
-        advisory: aiResult.advisory,
-        recordId: factCheckRecord._id,
-      },
+        sources: aiResult.sources || [],
+        researchMetadata: aiResult.researchMetadata || {},
+        metadata: {
+          ocrConfidence: ocrConfidence || 95,
+          timelineAndContext: aiResult.timelineAndContext || "",
+          debunkingEvidence: aiResult.debunkingEvidence || [],
+          keySignals: aiResult.keySignals || [],
+          tactics: aiResult.tactics || [],
+          sourcesChecked: aiResult.sourcesChecked || [],
+          advisory: aiResult.advisory || "",
+          source: "Camera Optical Scan (High-Precision OCR Lens)",
+          sources: aiResult.sources || [],
+          researchMetadata: aiResult.researchMetadata || {},
+        },
+      });
+    } catch (dbErr) {
+      console.warn("[ScanController DB Save Notice]:", dbErr.message);
+    }
+
+    // 10. Return Structured Response (Sanitized of internal provider names)
+    const publicData = sanitizePublicReport({
+      extractedText: extractedText.trim(),
+      claimAnalyzed: extractedText.trim(),
+      source: "Camera Optical Scan (High-Precision OCR Lens)",
+      inputType: "CAMERA",
+      ocrConfidence: ocrConfidence || 95,
+      verdict: aiResult.verdict,
+      confidence: Math.round(aiResult.confidence),
+      explanation: aiResult.explanation.trim(),
+      timelineAndContext: aiResult.timelineAndContext,
+      debunkingEvidence: aiResult.debunkingEvidence,
+      keySignals: aiResult.keySignals,
+      tactics: aiResult.tactics,
+      sourcesChecked: aiResult.sourcesChecked,
+      advisory: aiResult.advisory,
+      sources: aiResult.sources || [],
+      researchMetadata: aiResult.researchMetadata || {},
+      recordId: factCheckRecord?._id || null,
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...publicData,
+      data: publicData,
     });
   } catch (error) {
     console.error("[ScanController Critical Error]:", error);
