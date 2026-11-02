@@ -10,8 +10,10 @@ dotenv.config();
 console.log(`[Worker] Starting TruthScan AI Email Worker on queue: '${EMAIL_QUEUE_NAME}'...`);
 
 // Minimal HTTP health check server strictly for Render Web Service compatibility
+// Uses WORKER_PORT (dedicated) so the worker can run alongside the API server locally.
+// On Render, set WORKER_PORT to the port Render assigns to the worker service.
 let healthServer = null;
-const workerPort = process.env.PORT;
+const workerPort = process.env.WORKER_PORT || process.env.PORT;
 
 if (workerPort) {
   healthServer = http.createServer((req, res) => {

@@ -3,10 +3,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+if (!process.env.SMTP_PASS) {
+  console.error("[EmailService] FATAL: SMTP_PASS is not set in environment.");
+}
+
+/**
+ * Nodemailer transporter using Brevo SMTP relay.
+ * Credentials: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS from .env
+ */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: Number(process.env.SMTP_PORT) === 465,
+  secure: Number(process.env.SMTP_PORT) === 465, // true only for port 465
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -14,13 +22,15 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Sends an OTP email to a user for account verification.
+ * Sends an OTP email to a user for account verification via Brevo SMTP.
+ * @param {string} email - Recipient email address
+ * @param {string} otp   - 6-digit OTP code
  */
 export const sendOtpEmail = async (email, otp) => {
-  const fromName = process.env.FROM_NAME || "TruthScan AI";
-  const fromEmail = process.env.EMAIL_FROM || process.env.FROM_EMAIL || "no-reply@truthscan.ai";
+  const fromName  = process.env.FROM_NAME  || "TruthScan AI";
+  const fromEmail = process.env.FROM_EMAIL || "no-reply@truthscan.ai";
 
-  const mailOptions = {
+  const info = await transporter.sendMail({
     from: `"${fromName}" <${fromEmail}>`,
     to: email,
     subject: `Your TruthScan AI Verification Code: ${otp}`,
@@ -34,7 +44,8 @@ export const sendOtpEmail = async (email, otp) => {
             Hello investigator,
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #333333;">
-            Use the following 6-digit verification code to activate your account clearance. This code will expire in <strong>5 minutes</strong>.
+            Use the following 6-digit verification code to activate your account clearance.
+            This code will expire in <strong>5 minutes</strong>.
           </p>
           <div style="text-align: center; margin: 28px 0;">
             <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; background: #B7FF3C; border: 2px solid #111111; padding: 12px 24px; box-shadow: 3px 3px 0px #111111; color: #111111;">
@@ -47,9 +58,8 @@ export const sendOtpEmail = async (email, otp) => {
         </div>
       </div>
     `,
-  };
+  });
 
-  const info = await transporter.sendMail(mailOptions);
   console.log(`[EmailService] OTP email dispatched to ${email}, messageId: ${info.messageId}`);
   return info;
 };
