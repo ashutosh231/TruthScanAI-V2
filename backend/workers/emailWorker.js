@@ -9,6 +9,16 @@ dotenv.config();
 
 console.log(`[Worker] Starting TruthScan AI Email Worker on queue: '${EMAIL_QUEUE_NAME}'...`);
 
+// Startup env check — catch missing vars before any job runs
+const requiredEnv = ["REDIS_URL", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "FROM_EMAIL"];
+const missingEnv  = requiredEnv.filter((k) => !process.env[k]);
+if (missingEnv.length > 0) {
+  console.error(`[Worker] ❌ FATAL: Missing required env vars: ${missingEnv.join(", ")}`);
+  console.error("[Worker] Set these in your Render/Railway environment dashboard.");
+  process.exit(1);
+}
+console.log("[Worker] ✅ All required env vars present.");
+
 // Minimal HTTP health check server strictly for Render Web Service compatibility
 // Uses WORKER_PORT (dedicated) so the worker can run alongside the API server locally.
 // On Render, set WORKER_PORT to the port Render assigns to the worker service.
